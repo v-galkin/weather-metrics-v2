@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -16,6 +17,19 @@ scheduler_config = {
 }
 
 
+def start_scheduler() -> None:
+    scheduler.add_job(
+        update_all_metrics,
+        "interval",
+        seconds=scheduler_config["query_interval"],
+        id="update_all_metrics",
+        replace_existing=True,
+        next_run_time=datetime.now(timezone.utc),
+    )
+
+    scheduler.start()
+
+
 async def update_all_metrics() -> None:
     settings = get_settings()
 
@@ -27,8 +41,3 @@ async def update_all_metrics() -> None:
             continue
 
         update_metrics(reading)
-
-
-scheduler.add_job(
-    update_all_metrics, "interval", seconds=scheduler_config["query_interval"]
-)

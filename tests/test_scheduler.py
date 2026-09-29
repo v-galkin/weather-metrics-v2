@@ -1,9 +1,10 @@
 import types
+from datetime import datetime, timedelta
 
 from prometheus_client import REGISTRY
 
 from app.core.exceptions import WeatherAPIError
-from app.weather.scheduler import update_all_metrics
+from app.weather.scheduler import scheduler, start_scheduler, update_all_metrics
 
 
 # Helpers
@@ -35,6 +36,18 @@ async def _weather_fails_for_one(location: str) -> dict:
 
 
 # Actual Tests
+async def test_start_scheduler_runs_first_update_immediately(mocker):
+    mocker.patch("app.weather.scheduler.update_all_metrics")
+
+    start_scheduler()
+    try:
+        job = scheduler.get_job("update_all_metrics")
+        now = datetime.now(job.next_run_time.tzinfo)
+        assert job.next_run_time <= now + timedelta(seconds=5)
+    finally:
+        scheduler.shutdown(wait=False)
+
+
 async def test_update_all_metrics_skips_failing_location(mocker):
     fake_settings = types.SimpleNamespace(locations=["Sch_Test_Fail", "Sch_Test_Pass"])
     mocker.patch("app.weather.scheduler.get_settings", return_value=fake_settings)

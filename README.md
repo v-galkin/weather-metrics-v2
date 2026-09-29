@@ -47,6 +47,23 @@ v1, a Docker Compose deployment on an Oracle Cloud VPS, lives in [v-galkin/weath
 
 **Test:** `test_weather_missing_fields` and `test_weather_invalid_json` in `tests/test_fetch.py` mock a 200 response with a missing field and with a body that isn't JSON, and check that `WeatherAPIError` is raised. Both were written before the fix and failed against the v1 code.
 
+### Weather data is available as soon as the app starts
+
+**Problem:** in v1, the first weather fetch happened only one full interval (60 seconds) after the app started:
+
+```
+0 s    app starts        → /metrics has no weather data
+60 s   first fetch runs  → London, Auckland and New York appear
+```
+
+- **A gap after every start.** For the first minute, the dashboard had nothing new to show.
+- **Frequent on Kubernetes.** On GKE, the pod restarts on every deploy and whenever a Spot node is reclaimed, so this gap happens far more often than on the v1 server.
+- **Hidden side effect.** The job was added to the scheduler when the module was imported, not when the app started, so simply importing the module (as the tests do) registered it.
+
+**Change:** a new `start_scheduler()` function in `app/weather/scheduler.py` adds the job and starts the scheduler, and the app calls it on startup (`app/main.py`). The job's first run is set to "now" (`next_run_time`, in UTC so it doesn't depend on the server's timezone), then it repeats every 60 seconds. The job also has a fixed ID, so starting the scheduler twice can't create a duplicate job that fetches every city twice.
+
+**Test:** `test_start_scheduler_runs_first_update_immediately` in `tests/test_scheduler.py` starts the scheduler with the fetch mocked out, and checks that the first run is due within a few seconds, not a minute later. It was written before the fix and failed against the v1 code.
+
 ## Running locally
 
 Create a `.env` file in the project root with your own [OpenWeatherMap API key](https://openweathermap.org/api):

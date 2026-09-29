@@ -3,12 +3,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.routers import health, metrics, weather
-from app.weather.scheduler import scheduler
+from app.weather.scheduler import scheduler, start_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    scheduler.start()
+    start_scheduler()
     yield
     scheduler.shutdown()
 
