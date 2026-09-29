@@ -146,6 +146,22 @@ docker run --rm <v2 image> id   → uid=10001(appuser)
 
 **Test:** no automated test. Checked by building the image, confirming with `id` that it runs as UID 10001, and confirming the app still serves `/health` and `/metrics` as that user.
 
+### Local runs no longer send data to the live dashboard
+
+**Problem:** in v1, one `prometheus.yml` was used both in production and for local development, and it always sent every metric to Grafana Cloud:
+
+```
+Laptop:  docker compose -f docker-compose-dev.yml up
+         → local Prometheus → remote_write → the live v1 Grafana Cloud stack
+```
+
+- **Test data mixed with production data.** Local runs used the same `job="weather-service"` label, so the live dashboard showed them alongside the real data, and they could affect the alerts.
+- **A production secret was needed to develop locally.** The dev setup mounted the Grafana Cloud token file; without it, Prometheus failed to start.
+
+**Change:** in v2, `prometheus.yml` is for local development only. It scrapes the app and sends nothing anywhere, and the dev Docker Compose file no longer mounts a token. On GKE, Prometheus is configured separately by its Helm chart and sends data to its own Grafana Cloud stack. The Prometheus image is also pinned to a specific version instead of `latest`.
+
+**Test:** no automated test. Checked by running the dev Docker Compose setup with no token file: the `weather-service` target shows as up in the Prometheus UI, the query `weather_temperature_celsius` returns the three cities, and the logs show no remote_write activity.
+
 ## Running locally
 
 Create a `.env` file in the project root with your own [OpenWeatherMap API key](https://openweathermap.org/api):
