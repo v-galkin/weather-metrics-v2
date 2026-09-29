@@ -1,0 +1,17 @@
+.env
+*.pyc
+
+venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+grafana-cloud-token.txt
+
+# Terraform
+infra/**/.terraform
+infra/**/*.tfstate*
+infra/**/terraform.tfvars
+
+# Planning notes (Delete the files after project is finished)
+weather-metrics-gke-project-plan.md
+weather-metrics-v2-daily-schedule.md

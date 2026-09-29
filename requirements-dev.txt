@@ -1,0 +1,9 @@
+-r requirements.txt
+python-dotenv
+pytest
+pytest-asyncio
+pytest-mock
+respx
+ruff
+black
+requests

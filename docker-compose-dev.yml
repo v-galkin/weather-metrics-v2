@@ -1,0 +1,19 @@
+services:
+  weather-service:
+    build: .
+    container_name: weather-service
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./grafana-cloud-token.txt:/etc/prometheus/grafana-cloud-token.txt:ro
+    depends_on:
+      - weather-service

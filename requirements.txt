@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+httpx
+APScheduler<4
+prometheus-client
+pydantic-settings
+python-dotenv
