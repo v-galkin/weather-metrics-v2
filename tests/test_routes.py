@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from prometheus_client import REGISTRY
 
 from app.core.exceptions import LocationNotFoundError, WeatherAPIError
 from app.main import app
@@ -58,6 +59,20 @@ def test_get_weather_success(mocker):
         "wind_speed_mps": test_data["wind_speed"],
     }
 
+# Version 2 Test
+def test_get_weather_does_not_update_metrics(mocker):
+    location = "Routes_No_Metrics"
+
+    mocker.patch("app.routers.weather.weather", side_effect=_fake_weather)
+
+    response = client.get(f"/weather/{location}")
+
+    assert response.status_code == 200
+    assert (
+        REGISTRY.get_sample_value("weather_temperature_celsius", {"location": location})
+        is None
+    )
+
 
 def test_get_weather_not_found(mocker):
     fake_location = "ASdfqew"
@@ -80,3 +95,5 @@ def test_get_weather_upstream_error(mocker):
     assert response.status_code == 502
     assert response.json() == {"detail": "Weather service unavailable"}
     assert "API key" not in response.text
+
+
