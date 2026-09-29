@@ -64,6 +64,28 @@ v1, a Docker Compose deployment on an Oracle Cloud VPS, lives in [v-galkin/weath
 
 **Test:** `test_start_scheduler_runs_first_update_immediately` in `tests/test_scheduler.py` starts the scheduler with the fetch mocked out, and checks that the first run is due within a few seconds, not a minute later. It was written before the fix and failed against the v1 code.
 
+### The fetch interval can be changed without a new build
+
+**Problem:** in v1, the 60-second fetch interval was hard-coded in a dictionary in `app/weather/scheduler.py`:
+
+```python
+scheduler_config = {
+    "query_interval": 60,
+}
+```
+
+- **Changing it needed a new release.** Edit the code, commit, build a new image and redeploy, just to change one number.
+- **Inconsistent with other settings.** The API key, URL, timeout and locations were already in `app/core/config.py` and could be changed with environment variables; the interval wasn't.
+- **No validation.** Nothing stopped a value of `0` or a negative number.
+
+**Change:** the interval is now a setting, `fetch_interval_seconds` in `app/core/config.py`, with a default of 60. It can be changed with the `FETCH_INTERVAL_SECONDS` environment variable (on GKE, from the Helm chart's values). It must be greater than 0: an invalid value stops the app at startup with a clear error instead of letting it run with a broken schedule.
+
+All settings can now be set with environment variables, including the locations, as JSON: `LOCATIONS='["London", "Paris"]'`.
+
+**Test:** two tests in `tests/test_scheduler.py`, both written before the fix and failing against the v1 code:
+- `test_start_scheduler_uses_interval_from_settings` sets `FETCH_INTERVAL_SECONDS=30` and checks that the scheduler's job runs every 30 seconds.
+- `test_settings_rejects_non_positive_interval` sets it to `0` and checks that the settings are rejected.
+
 ## Running locally
 
 Create a `.env` file in the project root with your own [OpenWeatherMap API key](https://openweathermap.org/api):

@@ -1,8 +1,11 @@
 import types
 from datetime import datetime, timedelta
 
+import pytest
 from prometheus_client import REGISTRY
+from pydantic import ValidationError
 
+from app.core.config import Settings, get_settings
 from app.core.exceptions import WeatherAPIError
 from app.weather.scheduler import scheduler, start_scheduler, update_all_metrics
 
@@ -36,6 +39,7 @@ async def _weather_fails_for_one(location: str) -> dict:
 
 
 # Actual Tests
+# Version 2 Test
 async def test_start_scheduler_runs_first_update_immediately(mocker):
     mocker.patch("app.weather.scheduler.update_all_metrics")
 
@@ -68,3 +72,25 @@ async def test_update_all_metrics_skips_failing_location(mocker):
         )
         == 14.2
     )
+
+
+# Version 2 Test
+async def test_start_scheduler_uses_interval_from_settings(mocker, monkeypatch):
+    monkeypatch.setenv("FETCH_INTERVAL_SECONDS", "30")
+    get_settings.cache_clear()
+    mocker.patch("app.weather.scheduler.update_all_metrics")
+
+    start_scheduler()
+    try:
+        job = scheduler.get_job("update_all_metrics")
+        assert job.trigger.interval == timedelta(seconds=30)
+    finally:
+        scheduler.shutdown(wait=False)
+
+
+# Version 2 Test
+def test_settings_rejects_non_positive_interval(monkeypatch):
+    monkeypatch.setenv("FETCH_INTERVAL_SECONDS", "0")
+
+    with pytest.raises(ValidationError):
+        Settings()

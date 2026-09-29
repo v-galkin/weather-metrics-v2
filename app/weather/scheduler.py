@@ -11,17 +11,12 @@ from app.weather.metrics import update_metrics
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
-# Probably need to move to DB later. Currently ok to have it here
-scheduler_config = {
-    "query_interval": 60,
-}
-
 
 def start_scheduler() -> None:
     scheduler.add_job(
         update_all_metrics,
         "interval",
-        seconds=scheduler_config["query_interval"],
+        seconds=get_settings().fetch_interval_seconds,
         id="update_all_metrics",
         replace_existing=True,
         next_run_time=datetime.now(timezone.utc),
