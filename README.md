@@ -123,6 +123,29 @@ pytest
 
 **Test:** no new test. The full test suite passes after `pip-sync` installs exactly the pinned versions and removes everything else, which also confirms that nothing needed `requests`.
 
+### The container no longer runs as root
+
+**Problem:** in v1, the Dockerfile had no `USER` instruction, so the app ran as root inside the container:
+
+```
+docker run --rm <v1 image> id   → uid=0(root)
+```
+
+- **A bigger impact from any security hole.** If a flaw in the app or one of its dependencies let someone run code, that code would run as root, making it easier to tamper with the container or try to escape from it.
+- **Blocked by Kubernetes security settings.** Clusters that require containers to run as non-root (`runAsNonRoot: true`) refuse to start a root container, and security scanners flag it.
+
+**Change:** the Dockerfile creates an unprivileged user, `appuser` (UID 10001), with no home folder and no login shell, and switches to it with `USER 10001` after the packages are installed:
+
+- **Installing still runs as root,** because `pip install` needs to write to the system Python folders. Only the running app is non-root.
+- **The app can't change its own code.** The application files are owned by root, so the app user can read them but not modify them.
+- **A numeric UID** (`USER 10001` rather than `USER appuser`) lets Kubernetes check that the user isn't root before starting the pod. With a name, it can't check, and it refuses to start the pod.
+
+```
+docker run --rm <v2 image> id   → uid=10001(appuser)
+```
+
+**Test:** no automated test. Checked by building the image, confirming with `id` that it runs as UID 10001, and confirming the app still serves `/health` and `/metrics` as that user.
+
 ## Running locally
 
 Create a `.env` file in the project root with your own [OpenWeatherMap API key](https://openweathermap.org/api):

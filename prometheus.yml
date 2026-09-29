@@ -1,3 +1,6 @@
+# This file is for local development only: scrapes the app, but does not send data to Grafana Cloud.
+# On GKE, Prometheus is configured by helm/prometheus-values.yaml.
+
 global:
   scrape_interval: 25s
 
@@ -5,9 +8,3 @@ scrape_configs:
   - job_name: weather-service
     static_configs:
       - targets: ["weather-service:8000"]
-
-remote_write:
-  - url: https://prometheus-prod-41-prod-au-southeast-1.grafana.net/api/prom/push
-    basic_auth:
-      username: 3610524
-      password_file: /etc/prometheus/grafana-cloud-token.txt
