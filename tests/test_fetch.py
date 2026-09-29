@@ -105,3 +105,27 @@ async def test_weather_connection_error():
 
     with pytest.raises(WeatherAPIError):
         await weather("Auckland")
+
+
+# Version 2 Test
+@respx.mock
+async def test_weather_missing_fields():
+    settings = get_settings()
+    respx.get(settings.openweather_base_url).mock(
+        return_value=httpx.Response(200, json={"wind": {"speed": 4.1}})
+    )
+
+    with pytest.raises(WeatherAPIError):
+        await weather("Auckland")
+
+
+# Version 2 Test
+@respx.mock
+async def test_weather_invalid_json():
+    settings = get_settings()
+    respx.get(settings.openweather_base_url).mock(
+        return_value=httpx.Response(200, text="<html>Bad gateway</html>")
+    )
+
+    with pytest.raises(WeatherAPIError):
+        await weather("Auckland")

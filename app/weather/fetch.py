@@ -61,6 +61,9 @@ async def weather(location: str) -> dict:
     response = await _request(location)
     _check_status(response, location)
 
-    weather_data = _parse_data(response.json(), location)
+    try:
+        weather_data = _parse_data(response.json(), location)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise WeatherAPIError("Weather API returned data not in JSON format") from exc
 
     return weather_data

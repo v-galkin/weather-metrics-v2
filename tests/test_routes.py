@@ -59,6 +59,7 @@ def test_get_weather_success(mocker):
         "wind_speed_mps": test_data["wind_speed"],
     }
 
+
 # Version 2 Test
 def test_get_weather_does_not_update_metrics(mocker):
     location = "Routes_No_Metrics"
@@ -95,5 +96,3 @@ def test_get_weather_upstream_error(mocker):
     assert response.status_code == 502
     assert response.json() == {"detail": "Weather service unavailable"}
     assert "API key" not in response.text
-
-
