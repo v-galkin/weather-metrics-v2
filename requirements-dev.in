@@ -1,0 +1,10 @@
+-c requirements.txt
+-r requirements.in
+
+pytest
+pytest-asyncio
+pytest-mock
+respx
+ruff
+black
+pip-tools

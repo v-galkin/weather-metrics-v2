@@ -86,6 +86,43 @@ All settings can now be set with environment variables, including the locations,
 - `test_start_scheduler_uses_interval_from_settings` sets `FETCH_INTERVAL_SECONDS=30` and checks that the scheduler's job runs every 30 seconds.
 - `test_settings_rejects_non_positive_interval` sets it to `0` and checks that the settings are rejected.
 
+### Every dependency is pinned to an exact version
+
+**Problem:** in v1, `requirements.txt` listed package names without versions, so every install got whatever was newest that day:
+
+```
+Laptop (last month)   → fastapi 0.135, ruff 0.12
+CI run (today)        → fastapi 0.142, ruff 0.16   ← different
+Docker build (later)  → fastapi 0.150, ruff 0.18   ← different again
+```
+
+- **The same code could build a different image.** Redeploying an old commit could install newer, untested versions.
+- **Surprise breakages.** While building v2, a newer ruff started failing code that had passed in v1 (new `DTZ005` and `I001` rules), and a newer Starlette started showing a deprecation warning, without any change to the code.
+- **Hidden dependencies weren't controlled.** The packages the app's own dependencies install (for example Starlette and anyio, installed by FastAPI) could change at any time.
+- **Unused packages.** `requirements-dev.txt` included `requests`, which nothing used, and listed `python-dotenv` twice.
+
+**Change:** dependencies are now managed with [pip-tools](https://github.com/jazzband/pip-tools):
+
+| File | Written by | Contains |
+|---|---|---|
+| `requirements.in` | Hand | The packages the app uses directly |
+| `requirements.txt` | `pip-compile` | Every package the app needs, each pinned to an exact version |
+| `requirements-dev.in` | Hand | Test and lint tools, plus the app's packages at the same versions |
+| `requirements-dev.txt` | `pip-compile` | Every development package, pinned |
+
+The Docker image and CI install from the generated `.txt` files, so a laptop, CI and every build use exactly the same versions. `requests` and the duplicate `python-dotenv` were removed.
+
+Updating is now a deliberate step that shows up as a reviewable commit:
+
+```
+pip-compile --upgrade requirements.in
+pip-compile --upgrade requirements-dev.in
+pip-sync requirements-dev.txt
+pytest
+```
+
+**Test:** no new test. The full test suite passes after `pip-sync` installs exactly the pinned versions and removes everything else, which also confirms that nothing needed `requests`.
+
 ## Running locally
 
 Create a `.env` file in the project root with your own [OpenWeatherMap API key](https://openweathermap.org/api):
