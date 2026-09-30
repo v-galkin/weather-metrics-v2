@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.core.config import get_settings
-from app.core.exceptions import WeatherAPIError
+from app.core.exceptions import LocationNotFoundError, WeatherAPIError
 from app.weather.fetch import weather
-from app.weather.metrics import update_metrics
+from app.weather.metrics import record_fetch_error, update_metrics
 from app.weather.status import fetch_status
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,9 @@ async def update_all_metrics() -> None:
     for location in settings.locations:
         try:
             reading = await weather(location)
-        except WeatherAPIError as exc:
+        except (WeatherAPIError, LocationNotFoundError) as exc:
             logger.warning("Skipping %s: %s", location, exc)
+            record_fetch_error(location)
             continue
 
         update_metrics(reading)

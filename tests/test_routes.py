@@ -101,6 +101,7 @@ def test_get_weather_upstream_error(mocker):
     assert "API key" not in response.text
 
 
+# Version 2 Test
 def test_ready_returns_503_before_first_fetch():
     response = client.get("/ready")
 
@@ -108,6 +109,7 @@ def test_ready_returns_503_before_first_fetch():
     assert response.json() == {"status": "not ready"}
 
 
+# Version 2 Test
 async def test_ready_returns_200_after_successful_fetch(mocker):
     fake_settings = types.SimpleNamespace(locations=["Routes_Ready"])
     mocker.patch("app.weather.scheduler.get_settings", return_value=fake_settings)
@@ -120,6 +122,7 @@ async def test_ready_returns_200_after_successful_fetch(mocker):
     assert response.json() == {"status": "ready"}
 
 
+# Version 2 Test
 async def test_ready_stays_503_when_every_fetch_fails(mocker):
     fake_settings = types.SimpleNamespace(locations=["Routes_Ready_Fail"])
     mocker.patch("app.weather.scheduler.get_settings", return_value=fake_settings)

@@ -182,6 +182,54 @@ Readiness deliberately checks only the **first** successful fetch, not every lat
 - `test_ready_returns_200_after_successful_fetch`: after one successful fetch round, it is.
 - `test_ready_stays_503_when_every_fetch_fails`: a round where every city fails doesn't make it ready (the "wrong API key" case).
 
+### Metrics show whether fetching is working
+
+**Problem:** in v1, the app recorded only the weather values, not whether fetching them worked. When a fetch failed, the last value stayed in place and looked current:
+
+```
+10:00  fetch OK      → weather_temperature_celsius{location="London"} 14.2
+10:01  fetch fails   → still 14.2
+16:00  still failing → still 14.2   ← looks current, but it's 6 hours old
+```
+
+- **Old data looked fresh.** Nothing showed how old a value was.
+- **Failures were invisible.** Errors were only logged, not counted, so they couldn't be graphed or alerted on.
+- **The stale-data alert was indirect.** It fired when the temperature hadn't *changed* for 2 hours: slow to notice a real failure, and able to fire falsely on a night when the temperature really stayed the same.
+
+**Change:** two new metrics in `app/weather/metrics.py`, labelled by location:
+
+| Metric | Type | Use |
+|---|---|---|
+| `weather_last_success_timestamp_seconds` | Gauge | Time of the last successful fetch. `time() - weather_last_success_timestamp_seconds` gives the age of the data in seconds |
+| `weather_fetch_errors_total` | Counter | Number of failed fetches since startup. `rate(weather_fetch_errors_total[5m])` gives the error rate |
+
+The timestamp is set whenever a reading is stored, and the scheduler records an error whenever a fetch fails. Labelling by location is safe because only the scheduler writes metrics, for the configured cities (see "The public route no longer creates metrics").
+
+**Test:** two tests in `tests/test_scheduler.py`, both written before the fix and failing against the v1 code:
+- `test_successful_fetch_records_timestamp`: after a successful fetch, the city has a timestamp no earlier than the start of the test.
+- `test_failed_fetch_counts_error`: after two failed rounds, the city's error count is exactly 2.
+
+### An unknown city no longer stops the whole update
+
+**Problem:** in v1, the scheduler only handled `WeatherAPIError`. A city that OpenWeatherMap doesn't know raises `LocationNotFoundError`, a separate error, which stopped the update round:
+
+```
+LOCATIONS = ["Aukland", "London", "New York"]   ← typo in the first city
+
+"Aukland"              → LocationNotFoundError → the round stops
+"London", "New York"   → never fetched, never updated
+```
+
+- **One typo broke every city.** A single misspelled location stopped all the others from updating.
+- **The failure wasn't counted.** It skipped the error handling, so it didn't appear in `weather_fetch_errors_total`.
+- **Easier to trigger in v2.** The locations can now be changed with an environment variable (for example a Helm value), without touching the code, so a typo is more likely.
+
+This problem wasn't in the original list of v1 issues; it was found while adding the fetch error metrics.
+
+**Change:** the scheduler (`app/weather/scheduler.py`) now handles `LocationNotFoundError` the same way as `WeatherAPIError`: it logs a warning, counts the error for that city, skips it, and carries on with the others.
+
+**Test:** `test_unknown_location_is_skipped_and_counted` in `tests/test_scheduler.py` runs a round where the first city is unknown and the second is valid. It checks that the valid city is still updated, and that the unknown one's error count is 1.
+
 ## Running locally
 
 Create a `.env` file in the project root with your own [OpenWeatherMap API key](https://openweathermap.org/api):
