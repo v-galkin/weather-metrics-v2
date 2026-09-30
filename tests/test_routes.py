@@ -1,8 +1,11 @@
+import types
+
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
 
 from app.core.exceptions import LocationNotFoundError, WeatherAPIError
 from app.main import app
+from app.weather.scheduler import update_all_metrics
 
 client = TestClient(app)
 
@@ -96,3 +99,33 @@ def test_get_weather_upstream_error(mocker):
     assert response.status_code == 502
     assert response.json() == {"detail": "Weather service unavailable"}
     assert "API key" not in response.text
+
+
+def test_ready_returns_503_before_first_fetch():
+    response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "not ready"}
+
+
+async def test_ready_returns_200_after_successful_fetch(mocker):
+    fake_settings = types.SimpleNamespace(locations=["Routes_Ready"])
+    mocker.patch("app.weather.scheduler.get_settings", return_value=fake_settings)
+    mocker.patch("app.weather.scheduler.weather", side_effect=_fake_weather)
+
+    await update_all_metrics()
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
+
+async def test_ready_stays_503_when_every_fetch_fails(mocker):
+    fake_settings = types.SimpleNamespace(locations=["Routes_Ready_Fail"])
+    mocker.patch("app.weather.scheduler.get_settings", return_value=fake_settings)
+    mocker.patch("app.weather.scheduler.weather", side_effect=_weather_upstream_error)
+
+    await update_all_metrics()
+    response = client.get("/ready")
+
+    assert response.status_code == 503

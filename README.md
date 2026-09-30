@@ -162,6 +162,26 @@ Laptop:  docker compose -f docker-compose-dev.yml up
 
 **Test:** no automated test. Checked by running the dev Docker Compose setup with no token file: the `weather-service` target shows as up in the Prometheus UI, the query `weather_temperature_celsius` returns the three cities, and the logs show no remote_write activity.
 
+### A readiness check shows whether the app actually works
+
+**Problem:** in v1, the only check was `/health`, which returns `{"status": "ok"}` whenever the process is running, even if every weather fetch is failing:
+
+```
+Wrong API key → every fetch fails → /health still says "ok"
+```
+
+- **A broken release looked healthy.** A deploy check based on `/health` would pass for a build that collects no data at all.
+- **No way to tell "running" from "working".** Kubernetes uses two separate checks: liveness (should the container be restarted?) and readiness (is it ready to do its job?). v1 had only the first.
+
+**Change:** a new `/ready` endpoint (`app/routers/health.py`) returns `200 {"status": "ready"}` once the scheduler has completed at least one successful fetch since startup, and `503 {"status": "not ready"}` until then. The state is kept in a small `FetchStatus` class (`app/weather/status.py`) that the scheduler updates after a successful fetch. `/health` is unchanged and stays the liveness check.
+
+Readiness deliberately checks only the **first** successful fetch, not every later one. If it followed later fetches, an OpenWeatherMap outage would make Kubernetes take the pod out of service, Prometheus would stop scraping it, and the metrics would disappear exactly when something was wrong. Problems after startup are the job of metrics and alerts instead.
+
+**Test:** three tests in `tests/test_routes.py`:
+- `test_ready_returns_503_before_first_fetch`: a freshly started app isn't ready.
+- `test_ready_returns_200_after_successful_fetch`: after one successful fetch round, it is.
+- `test_ready_stays_503_when_every_fetch_fails`: a round where every city fails doesn't make it ready (the "wrong API key" case).
+
 ## Running locally
 
 Create a `.env` file in the project root with your own [OpenWeatherMap API key](https://openweathermap.org/api):

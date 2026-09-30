@@ -7,6 +7,7 @@ from app.core.config import get_settings
 from app.core.exceptions import WeatherAPIError
 from app.weather.fetch import weather
 from app.weather.metrics import update_metrics
+from app.weather.status import fetch_status
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -36,3 +37,4 @@ async def update_all_metrics() -> None:
             continue
 
         update_metrics(reading)
+        fetch_status.mark_success()
