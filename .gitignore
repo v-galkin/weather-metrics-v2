@@ -1,6 +1,6 @@
 .env
 *.pyc
-.zip
+*.zip
 
 venv/
 __pycache__/
