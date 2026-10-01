@@ -2,7 +2,7 @@
   "apiVersion": "dashboard.grafana.app/v2",
   "kind": "Dashboard",
   "metadata": {
-    "name": "ganq6bx"
+    "name": "weather-metrics-v2"
   },
   "spec": {
     "annotations": [
@@ -48,7 +48,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "weather_temperature_celsius",
+                        "expr": "weatherv2_temperature_celsius",
                         "legendFormat": "{{location}}",
                         "range": true
                       },
@@ -146,7 +146,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "weather_humidity_percent",
+                        "expr": "weatherv2_humidity_percent",
                         "legendFormat": "{{location}}",
                         "range": true
                       },
@@ -242,7 +242,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "weather_wind_speed_mps",
+                        "expr": "weatherv2_wind_speed_mps",
                         "legendFormat": "{{location}}",
                         "range": true
                       },
@@ -339,7 +339,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "weather_temperature_celsius",
+                        "expr": "weatherv2_temperature_celsius",
                         "legendFormat": "{{location}}",
                         "range": true
                       },
@@ -453,7 +453,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "weather_humidity_percent",
+                        "expr": "weatherv2_humidity_percent",
                         "legendFormat": "{{location}}",
                         "range": true
                       },
@@ -567,7 +567,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "builder",
-                        "expr": "weather_wind_speed_mps",
+                        "expr": "weatherv2_wind_speed_mps",
                         "legendFormat": "{{location}}",
                         "range": true
                       },
@@ -780,7 +780,7 @@
                   "rowHeightMode": "standard"
                 }
               },
-              "title": "Weather Metrics"
+              "title": "Weather Metrics v2"
             }
           }
         ]
@@ -834,7 +834,7 @@
       "timezone": "browser",
       "to": "now"
     },
-    "title": "Weather Metrics",
+    "title": "Weather Metrics v2",
     "variables": []
   }
 }
