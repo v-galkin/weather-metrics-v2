@@ -1,0 +1,2 @@
+project_id          = "your_gcp_project_id"
+github_repository   = "owner/repo"
