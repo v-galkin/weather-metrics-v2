@@ -123,6 +123,30 @@ pytest
 
 **Test:** no new test. The full test suite passes after `pip-sync` installs exactly the pinned versions and removes everything else, which also confirms that nothing needed `requests`.
 
+### Every image can be traced to its commit
+
+**Problem:** in v1, each build was pushed only as `:latest`, overwriting the previous one:
+
+```
+Monday's build   → ghcr.io/…:latest
+Tuesday's build  → ghcr.io/…:latest   ← Monday's image has no tag any more
+```
+
+- **No way to tell what was running.** `latest` meant a different image depending on the day.
+- **No rollback.** The previous image was still in the registry, but nothing pointed at it.
+- **Deploys weren't reproducible.** Deploying `latest` twice could deploy two different builds.
+
+**Change:** CI (`.github/workflows/ci-cd.yml`) now tags every image twice, with `latest` and with the full commit SHA:
+
+```
+ghcr.io/v-galkin/weather-metrics-v2:latest
+ghcr.io/v-galkin/weather-metrics-v2:fd8c9ec3575821a0d0c07af62da9b55b249bd30c
+```
+
+Both tags point to the same image, built and pushed once. `latest` moves with every build; the SHA tag always identifies one exact commit. The GKE deploy uses the SHA tag, so the cluster runs exactly the commit that was deployed, and rolling back means deploying an older SHA.
+
+**Test:** no automated test. Checked after a push to `main` that both tags exist in the registry and have the same image digest.
+
 ### The container no longer runs as root
 
 **Problem:** in v1, the Dockerfile had no `USER` instruction, so the app ran as root inside the container:
