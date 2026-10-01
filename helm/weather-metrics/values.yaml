@@ -1,0 +1,31 @@
+# One replica to prevent weather metrics duplication due to multiple API calls 
+replicaCount: 1
+
+image:
+  repository: ghcr.io/v-galkin/weather-metrics-v2
+  tag: latest
+
+service:
+  port: 8000
+
+probes:
+  livenessPath: /health
+  readinessPath: /ready
+
+metricsPath: /metrics
+
+secretName: weather-secrets
+
+# Settings are saved in the app/core/config.py file
+config:
+  FETCH_INTERVAL_SECONDS: 60
+
+nodeSelector:
+  cloud.google.com/gke-spot: "true"
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
