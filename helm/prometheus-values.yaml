@@ -1,0 +1,39 @@
+alertmanager:
+  enabled: false            
+prometheus-pushgateway:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false            
+kube-state-metrics:
+  enabled: false           
+
+server:
+  nodeSelector:
+    cloud.google.com/gke-spot: "true"
+  persistentVolume:
+    enabled: false          
+  retention: "6h"
+  global:
+    scrape_interval: 25s    
+    external_labels:
+      cluster: gke          
+  remoteWrite:
+    - url: https://prometheus-prod-41-prod-au-southeast-1.grafana.net/api/prom/push
+      basic_auth:
+        username: "3610524"
+        password_file: /etc/secrets/grafana/token
+      write_relabel_configs:
+        # Send the app metrics
+        - source_labels: [__name__]
+          regex: "weather_.*"
+          action: keep
+        # Rename metrics to 'weatherv2_' format so they do not mix with the old metrics due to shared Grafana stack
+        - source_labels: [__name__]
+          regex: "weather_(.*)"
+          target_label: __name__
+          replacement: "weatherv2_$1"
+  extraSecretMounts:
+    - name: grafana-cloud
+      mountPath: /etc/secrets/grafana
+      secretName: grafana-cloud
+      readOnly: true
