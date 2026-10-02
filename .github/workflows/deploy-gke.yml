@@ -1,0 +1,58 @@
+name: Deploy to GKE
+
+on:
+    # Run manually from the Actions tab
+    workflow_dispatch:
+      inputs:
+        image_tag:
+          description: "Image tag to deploy a commit SHA or latest image tag"
+          default: latest
+    # Run automatically on push to main branch after CI/CD finishes
+    workflow_run:
+      workflows: ["CI/CD"]
+      types:
+        - completed
+      branches: 
+        - main
+
+concurrency:
+  group: deploy-gke
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: > 
+      github.event_name == 'workflow_dispatch' || 
+      (github.event.workflow_run.conclusion == 'success' && vars.GKE_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag || github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/get-gke-credentials@v3
+        with:
+          cluster_name: weather-autopilot
+          location: ${{ vars.GCP_REGION }}
+
+      - uses: azure/setup-helm@v5
+
+      - name: Deploy
+        run: |
+          helm upgrade --install weather helm/weather-metrics \
+            -n weather \
+            --set image.tag=$IMAGE_TAG \
+            --wait --timeout 5m
+
+      - name: Verify rollout
+        run: kubectl -n weather rollout status deployment/weather --timeout=2m
