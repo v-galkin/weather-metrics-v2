@@ -8,7 +8,9 @@ v1, a Docker Compose deployment on an Oracle Cloud VPS, lives in [v-galkin/weath
 
 ## Dashboard
 
-![Weather Metrics v2 Grafana dashboard](screenshots/dashboard-v2.png)
+![Weather Metrics v2 Grafana dashboard](screenshots/history/08-final-healthy-30-minutes.png)
+
+The first GKE session, step by step, with screenshots of two deliberate failure tests and one real outage: [docs/gke-session-2026-10-03.md](docs/gke-session-2026-10-03.md)
 
 ## Architecture
 
