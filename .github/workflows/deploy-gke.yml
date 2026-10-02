@@ -52,6 +52,7 @@ jobs:
           helm upgrade --install weather helm/weather-metrics \
             -n weather \
             --set image.tag=$IMAGE_TAG \
+            --rollback-on-failure \
             --wait --timeout 5m
 
       - name: Verify rollout
