@@ -4,7 +4,7 @@ A weather metrics service running on **Google Kubernetes Engine**, with infrastr
 
 The service fetches current weather for London, Auckland and New York every 60 seconds, exposes it as Prometheus metrics, and feeds a Grafana Cloud dashboard. The whole environment is built from code at the start of a session and destroyed at the end, so it costs almost nothing when idle.
 
-![Weather Metrics v2 Grafana dashboard](screenshots/history/08-final-healthy-30-minutes.png)
+![Weather Metrics v2 Grafana dashboard](screenshots/history/07-final-healthy-30-minutes.png)
 
 ## The story
 

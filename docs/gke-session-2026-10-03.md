@@ -55,17 +55,11 @@ The commit that added `--rollback-on-failure` was itself deployed automatically 
 
 Continuous data for all three cities. "Fetch errors (last hour)" uses `increase(...[1h])`, so the test failures count less as they move out of the window (2.68, then 1.48). "Data age" stays between 0 and about 90 seconds: up to 60 seconds between fetches, plus up to 25 seconds until the next scrape.
 
-### 7. All healthy
+### 7. All healthy: 30 minutes of normal operation
 
-![All panels healthy](../screenshots/history/07-all-healthy.png)
+![All panels healthy over 30 minutes](../screenshots/history/07-final-healthy-30-minutes.png)
 
-All panels green: current values for every city, data a few seconds old, and no fetch errors in the last hour.
-
-### 8. The final state: 30 minutes of normal operation
-
-![30 minutes of healthy data](../screenshots/history/08-final-healthy-30-minutes.png)
-
-The last 30 minutes of the session: continuous data for all three cities, data age under 90 seconds, and no fetch errors. This is what the dashboard looks like in normal operation.
+The last 30 minutes of the session, after the test failures left the one-hour window: continuous data for all three cities, data age under 90 seconds, and no fetch errors. This is what the dashboard looks like in normal operation.
 
 ## What changed because of this session
 
