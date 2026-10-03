@@ -1,4 +1,4 @@
-# ADR 0001: Run v2 on GKE Autopilot, managed with Terraform and Helm
+# Architecture Decision Record 0001: Run v2 on GKE Autopilot, managed with Terraform and Helm
 
 ## Status
 

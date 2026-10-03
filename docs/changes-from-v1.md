@@ -270,3 +270,29 @@ v2 sending the same names to the same stack
 **Why a prefix instead of a label:** putting a version into a metric name is not the usual practice; a label is. A prefix was used here only because the stack is shared with a live system whose queries can't be changed. With a separate stack per environment, both versions would keep the same names.
 
 **Test:** no automated test. Checked in Grafana Explore that `weatherv2_temperature_celsius` returns the three cities with `cluster="kind"`, that the "Weather Metrics v2" dashboard shows them, and that v1's public dashboard is unchanged.
+
+## A failed deploy no longer leaves the app down
+
+**Problem:** in v1, a deploy replaced the running containers first and checked them afterwards:
+
+```
+docker compose up -d --force-recreate   → the old containers are already gone
+curl /weather/health                    → only checks that the process answers
+```
+
+- **A broken release went live straight away.** By the time the check ran, the working version had already been replaced.
+- **The check could not see a broken app.** `/health` answers as long as the process runs, so a release with a wrong API key passed it while collecting no data.
+- **Nothing rolled back.** When the check did fail, the workflow went red, but the broken release stayed in place until someone deployed again.
+
+The first version of the v2 deploy had the same gap. During the first GKE session, a mistyped image tag left the app down for 17 minutes: the workflow failed correctly, but the failed release stayed in place.
+
+**Change:** the deploy workflow (`.github/workflows/deploy-gke.yml`) runs `helm upgrade` with `--wait` and `--rollback-on-failure`:
+
+- **Readiness decides success.** Helm waits for the readiness check, `/ready`, which passes only after the first successful weather fetch. A release that runs but cannot fetch data counts as failed.
+- **A failed release is rolled back automatically** to the last working Helm revision, so the app comes back without anyone stepping in.
+- **The workflow still fails**, so the problem stays visible.
+
+**Test:** checked on GKE, documented in [docs/gke-session-2026-10-03.md](gke-session-2026-10-03.md):
+
+- **A wrong API key, deployed on purpose:** the pod started but never became ready, and the workflow failed after its 5-minute timeout.
+- **A mistyped image tag, by accident:** the image could not be pulled, and the workflow failed. Before `--rollback-on-failure` was added, this caused the 17-minute outage; the commit that added it was deployed automatically and restored the app.

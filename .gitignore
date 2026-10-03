@@ -16,4 +16,5 @@ infra/**/terraform.tfvars
 # Planning notes (Delete the files after project is finished)
 weather-metrics-gke-project-plan.md
 weather-metrics-v2-daily-schedule.md
+weather-metrics-v2-runbook.md
 learning-notes/
