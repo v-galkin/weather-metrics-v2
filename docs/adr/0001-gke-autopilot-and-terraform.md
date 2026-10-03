@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted, 3 October 2026
+Accepted, 3 October 2026. Updated the same day with lessons from the first GKE session ([session notes](../gke-session-2026-10-03.md)).
 
 ## Context
 
@@ -41,6 +41,7 @@ For v2, the goals were:
 - The deployer service account has `roles/container.developer`: it can deploy workloads but can't change or delete the cluster.
 - Images are tagged with the commit SHA, and each deploy uses the SHA of the commit that CI built.
 - Automatic deploys run only when the repository variable `GKE_ENABLED` is `true`, so pushes while the cluster is destroyed are skipped.
+- A failed deploy rolls back automatically (`helm upgrade --rollback-on-failure`). This was added after the first GKE session, where a mistyped image tag left the app down for 17 minutes because the failed release stayed in place.
 
 **Observability: in-cluster Prometheus, forwarding to v1's Grafana Cloud stack.**
 
@@ -58,6 +59,8 @@ For v2, the goals were:
 - Readiness is based on the first successful fetch only, so a broken release fails the deploy, while a later OpenWeatherMap outage doesn't take the pod out of service. Problems after startup show up in the `weather_last_success_timestamp_seconds` and `weather_fetch_errors_total` metrics.
 - Spot pods can be evicted. That is acceptable for this workload: the app fetches immediately on startup, so a restart costs seconds of data.
 - One replica is a deliberate limit: each replica polls the API independently, so scaling out would need leader election or separating fetching from serving.
+- With one replica and the Recreate strategy, the working pod is stopped before the new one starts. A deploy that never becomes ready therefore leaves a gap in the data until Helm rolls back, about 5 minutes with the current timeout.
+- Each deploy creates a new pod, and Prometheus labels series with the pod's address, so every deploy starts a new set of series. Dashboard queries combine them by city (`max by (location)`, `sum by (location)`). Dropping the per-pod labels before remote write would also reduce the number of series in Grafana Cloud.
 - v2 has no alert rules, because the cluster is destroyed after every session and alerts would only create noise.
 - Putting a version prefix (`weatherv2_`) into metric names is not the usual practice; a label is. It was chosen only because the Grafana Cloud stack is shared with a live system. With a separate stack, both versions would keep the same names.
 - Secrets (the OpenWeatherMap key and the Grafana token) are created by hand with `kubectl` each session. A managed approach, such as Secret Manager with the GKE add-on or External Secrets Operator, is a possible next step.

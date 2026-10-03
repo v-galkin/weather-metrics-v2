@@ -76,6 +76,9 @@ docs/                   changes from v1 and architecture decision records
 2. **Deploy to GKE** (`deploy-gke.yml`) starts when CI/CD finishes on `main`. It deploys only if CI succeeded and the repository variable `GKE_ENABLED` is `true`, so pushes made while the cluster is down are skipped instead of failing. It can also be run by hand from the Actions tab, with any built image tag.
 3. The deploy job logs in to Google Cloud with **Workload Identity Federation**: GitHub issues a short-lived OIDC token, and Google exchanges it for credentials that last about an hour. Only runs from this repository's `main` branch are accepted.
 4. It runs `helm upgrade --install` with the commit's SHA tag and waits for the pod to become **ready**. Readiness (`/ready`) passes only after the app's first successful weather fetch, so a broken release, such as one with a wrong API key, fails the workflow instead of looking healthy.
+5. If the deploy fails, Helm **rolls back automatically** (`--rollback-on-failure`) to the last working revision, so a bad release doesn't leave the app down until someone notices. The workflow still fails, so the problem is visible.
+
+Both failure cases were tested on GKE: a wrong API key (the pod starts but never becomes ready) and a mistyped image tag (the image can't be pulled). The second one, before automatic rollback was added, caused a 17-minute outage, which is why the rollback was added. See [the first GKE session](docs/gke-session-2026-10-03.md).
 
 The deployer service account has `roles/container.developer` only: it can deploy workloads but cannot create, change or delete the cluster.
 
@@ -132,6 +135,7 @@ gcloud container clusters list   # should list nothing
 - **One replica and the Recreate strategy.** Each replica polls the API on its own, so two would double the API calls and duplicate the metrics. A rolling update would briefly run two pods, so the Deployment uses Recreate.
 - **Liveness and readiness are separate.** `/health` (liveness) only checks that the process is running. `/ready` (readiness) checks for the first successful fetch since startup. Later outages don't affect readiness: if they did, Kubernetes would stop routing to the pod and Prometheus would stop scraping it exactly when something was wrong. Problems after startup show up in the `weather_fetch_errors_total` and `weather_last_success_timestamp_seconds` metrics.
 - **Two Terraform roots.** `bootstrap` (identity, permanent) and `cluster` (network and GKE, destroyed each session) have different lifecycles and separate state files, so destroying the cluster can never touch the identity resources.
+- **Dashboard queries are combined by city.** Prometheus labels each series with the pod it came from (`instance`, `node`), and every deploy creates a new pod, so each deploy starts a new set of series. The dashboard combines them with `max by (location) (...)` for values and `sum by (location) (...)` for error counts, so it always shows one value per city.
 - **A shared Grafana Cloud stack.** The free trial allows one stack, which v1 already uses. Prometheus renames v2's metrics to `weatherv2_*` when sending them, so v1's dashboard and alerts are unaffected. Details: [docs/changes-from-v1.md](docs/changes-from-v1.md#v2-shares-the-grafana-cloud-stack-without-affecting-v1).
 - **Region `australia-southeast1` (Sydney).** The closest region available to the project; no New Zealand region was available yet.
 
