@@ -6,6 +6,22 @@ The service fetches current weather for London, Auckland and New York every 60 s
 
 ![Weather Metrics v2 Grafana dashboard](screenshots/history/07-final-healthy-30-minutes.png)
 
+## Contents
+
+1. [The story](#the-story)
+2. [Highlights](#highlights)
+3. [Architecture](#architecture)
+   - [Build and deploy](#build-and-deploy)
+   - [Rollout](#rollout)
+   - [Runtime](#runtime)
+4. [Cost](#cost)
+5. [What changed since v1](#what-changed-since-v1)
+6. [Tech stack](#tech-stack)
+7. [Repository layout](#repository-layout)
+8. [Running it](#running-it)
+   - [Locally](#locally)
+   - [On GKE](#on-gke)
+
 ## The story
 
 **v1** is a FastAPI service on a single Oracle Cloud VPS, run with Docker Compose and deployed by GitHub Actions over SSH with a stored key. It is still live, with a public Grafana dashboard and alert rules, in [v-galkin/weather-metrics](https://github.com/v-galkin/weather-metrics). It was not changed at any point while building v2.
@@ -203,10 +219,11 @@ docker compose -f docker-compose-dev.yml up --build
 
 **On a local Kubernetes cluster** with [kind](https://kind.sigs.k8s.io/). The `nodeSelector` override removes the GKE Spot setting, since kind has no Spot nodes:
 
-```
+```powershell
 kind create cluster --name weather
 kubectl create namespace weather
-kubectl -n weather create secret generic weather-secrets --from-literal=OPENWEATHER_API_KEY=<openweathermap-key>
+$key = (Get-Content .env | Select-String '^OPENWEATHER_API_KEY=').Line.Split('=', 2)[1]
+kubectl -n weather create secret generic weather-secrets --from-literal=OPENWEATHER_API_KEY=$key
 helm upgrade --install weather helm/weather-metrics -n weather --set nodeSelector=null --wait
 kubectl -n weather port-forward svc/weather 8000:8000
 ```
@@ -229,7 +246,7 @@ kubectl -n weather port-forward svc/weather 8000:8000
 3. **Create the identity for GitHub Actions** with `terraform apply` in `infra/bootstrap`. Then set the repository variables in the fork: `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_DEPLOYER_SA` from `terraform output`, `GCP_REGION`, and `GKE_ENABLED` set to `false`.
 4. **Make the image public.** After the first push to `main` builds the image, change the visibility of the GitHub Container Registry package to public, so the cluster can pull it without credentials.
 
-**Starting a session.** Replace `<openweathermap-key>` with the OpenWeatherMap API key and `<grafana-token>` with the Grafana Cloud access token:
+**Starting a session.** No secret is typed into a command: the OpenWeatherMap key is read from the local `.env` file, the Grafana Cloud token is entered into a hidden prompt, and the image tag comes from the current commit.
 
 ```powershell
 cd infra/cluster
@@ -238,17 +255,23 @@ cd ../..
 gcloud container clusters get-credentials weather-autopilot --region australia-southeast1
 
 kubectl create namespace weather
-kubectl -n weather create secret generic weather-secrets --from-literal=OPENWEATHER_API_KEY=<openweathermap-key>
+$key = (Get-Content .env | Select-String '^OPENWEATHER_API_KEY=').Line.Split('=', 2)[1]
+kubectl -n weather create secret generic weather-secrets --from-literal=OPENWEATHER_API_KEY=$key
 
 kubectl create namespace monitoring
-kubectl -n monitoring create secret generic grafana-cloud --from-literal=token=<grafana-token>
+$secure = Read-Host "Grafana Cloud token" -AsSecureString
+$token = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+kubectl -n monitoring create secret generic grafana-cloud --from-literal=token=$token
+Remove-Variable key, token, secure
+
 helm upgrade --install prometheus oci://ghcr.io/prometheus-community/charts/prometheus `
-  --version 29.35.0 -n monitoring -f helm/prometheus-values.yaml --wait
+  --version 29.35.0 -n monitoring -f helm/prometheus-values.yaml --wait --timeout 10m
 
 gh variable set GKE_ENABLED --body "true"
+gh workflow run deploy-gke.yml -f image_tag=$(git rev-parse HEAD)
 ```
 
-Then run **Deploy to GKE** from the Actions tab, or push to `main`.
+The deploy uses the image that CI built for the latest commit on `main`. After this, every push to `main` deploys automatically.
 
 **Ending a session:**
 
